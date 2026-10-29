@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Two-gate entrance at shift change</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  color-scheme: light;
+  --page: #eef0f2;
+  --panel: #ffffff;
+  --ink: #1b2229;
+  --muted: #5d6873;
+  --line: #c9ced4;
+  --floor: #dde1e5;
+  --wall: #48525c;
+  --yellow: #f2b705;
+  --go: #1f9d55;
+  --check: #e8590c;
+  --rfid: #2f6fde;
+  --worker: #6b7a88;
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: #15181b;
+    --panel: #1e2227;
+    --ink: #e7eaed;
+    --muted: #9aa5b0;
+    --line: #353c44;
+    --floor: #2a3036;
+    --wall: #8994a0;
+    --yellow: #f5c22e;
+    --go: #3cc274;
+    --check: #ff7a33;
+    --rfid: #5b93ff;
+    --worker: #93a1ae;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #15181b;
+  --panel: #1e2227;
+  --ink: #e7eaed;
+  --muted: #9aa5b0;
+  --line: #353c44;
+  --floor: #2a3036;
+  --wall: #8994a0;
+  --yellow: #f5c22e;
+  --go: #3cc274;
+  --check: #ff7a33;
+  --rfid: #5b93ff;
+  --worker: #93a1ae;
+}
+html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+*, *::before, *::after { box-sizing: inherit; }
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--ink);
+  font-family: "Barlow", "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-size: 16px;
+  line-height: 1.45;
+}
+main { max-width: 1080px; margin: 0 auto; padding: 28px 20px 40px; }
+h1 { font-size: clamp(1.6rem, 3.6vw, 2.3rem); font-weight: 700; line-height: 1.1; margin: 0 0 8px; letter-spacing: -0.01em; }
+.lead { margin: 0 0 22px; color: var(--muted); max-width: 68ch; font-size: 1.05rem; }
+.stage { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+canvas { display: block; width: 100%; height: auto; background: var(--panel); }
+.controls { display: flex; flex-wrap: wrap; gap: 14px 22px; align-items: center; padding: 14px 16px; border-top: 1px solid var(--line); }
+.group { display: flex; align-items: center; gap: 8px; }
+.group > span { color: var(--muted); font-size: 0.92rem; }
+button {
+  font: inherit; font-weight: 600; color: var(--ink); background: transparent;
+  border: 1px solid var(--line); border-radius: 6px; padding: 6px 12px; cursor: pointer; min-height: 36px;
+}
+button:hover { border-color: var(--wall); }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--rfid); outline-offset: 2px; }
+button.primary { background: var(--yellow); border-color: var(--yellow); color: #1b2229; min-width: 92px; }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+.seg { display: flex; gap: 4px; }
+.lanes-val { min-width: 1.5ch; text-align: center; font-weight: 700; font-variant-numeric: tabular-nums; }
+input[type=range] { accent-color: var(--check); width: 120px; }
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--line); border-top: 1px solid var(--line); }
+.stat { background: var(--panel); padding: 14px 16px; }
+.stat b { display: block; font-size: 1.65rem; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.stat span { color: var(--muted); font-size: 0.9rem; }
+.summary { margin: 18px 0 8px; font-size: 1.08rem; max-width: 72ch; }
+.summary strong { font-weight: 700; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 20px; margin: 14px 0 0; padding: 0; list-style: none; color: var(--muted); font-size: 0.92rem; }
+.legend li { display: flex; align-items: center; gap: 8px; }
+.legend i { width: 14px; height: 14px; border-radius: 50%; display: inline-block; }
+.note { color: var(--muted); font-size: 0.86rem; margin-top: 18px; max-width: 80ch; }
+@media (max-width: 640px) {
+  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stat b { font-size: 1.35rem; }
+}
+</style>
+</head>
+<body>
+<main>
+  <h1>Shift change at the two-gate entrance</h1>
+  <p class="lead">Each dot is a worker. Gate 1 reads their card and face while they keep walking. By the time they reach Gate 2, the system knows whether the face matches the card, and the diverter sends them straight in or to the guard.</p>
+
+  <div class="stage">
+    <canvas id="sim" role="img" aria-label="Animated top-down view of workers walking through two gates and being sorted into a go lane or a guard check lane"></canvas>
+    <div class="controls">
+      <button class="primary" id="play">Pause</button>
+      <button id="restart">Restart</button>
+      <div class="group"><span>Speed</span>
+        <div class="seg" id="speed">
+          <button data-v="1" aria-pressed="false">1×</button>
+          <button data-v="5" aria-pressed="true">5×</button>
+          <button data-v="20" aria-pressed="false">20×</button>
+          <button data-v="60" aria-pressed="false">60×</button>
+        </div>
+      </div>
+      <div class="group"><span>Lanes</span>
+        <button id="lanesDown" aria-label="Fewer lanes">−</button>
+        <span class="lanes-val" id="lanesVal">4</span>
+        <button id="lanesUp" aria-label="More lanes">+</button>
+      </div>
+      <div class="group"><span>Mismatches</span>
+        <input type="range" id="mis" min="0" max="10" step="1" value="3" aria-label="Percentage of workers whose face does not match their card">
+        <span id="misVal">3%</span>
+      </div>
+    </div>
+    <div class="stats">
+      <div class="stat"><b id="sThrough">0</b><span>of 3,000 through Gate 2</span></div>
+      <div class="stat"><b id="sGuard">0</b><span>sent to the guard</span></div>
+      <div class="stat"><b id="sTime">0:00</b><span>since the shift change began</span></div>
+      <div class="stat"><b id="sRate">0</b><span>workers per minute right now</span></div>
+    </div>
+  </div>
+
+  <ul class="legend">
+    <li><i style="background:var(--worker)"></i>Walking up</li>
+    <li><i style="border:2px dashed var(--rfid)"></i>Card and face being matched</li>
+    <li><i style="background:var(--go)"></i>Matched, goes straight in</li>
+    <li><i style="background:var(--check)"></i>Mismatch, guard checks</li>
+  </ul>
+
+  <p class="summary" id="summary"></p>
+  <p class="note">This is an illustration, not a measurement. It assumes one worker every 1.6 seconds per lane at normal walking pace (about 1.3 m/s), Gate 2 placed about 7.5 m after Gate 1, and a guard check of about 12 seconds. Real numbers depend on your hardware and site layout.</p>
+</main>
+
+<script>
+(() => {
+  const TOTAL = 3000, W = 1000, TOP = 34, LANE_H = 125;
+  const G1 = 300, G2 = 600, FORK = 650, GUARD = 880;
+  const SPEED = 52, HEADWAY = 1.6, GUARD_TIME = 12;
+
+  const canvas = document.getElementById('sim');
+  const ctx = canvas.getContext('2d');
+  const $ = id => document.getElementById(id);
+
+  let lanes = 4, speed = 5, mis = 0.03;
+  let running = true, finished = false;
+  let workers, timers, queues, diverters, gateOpen, signals, spawned, through, guarded, simT, passTimes, effects, H;
+  let colors = {};
+
+  function readColors() {
+    const cs = getComputedStyle(document.documentElement);
+    ['floor','wall','yellow','go','check','rfid','worker','ink','muted','panel','line'].forEach(k => colors[k] = cs.getPropertyValue('--' + k).trim());
+  }
+
+  function laneY(l) { return TOP + l * LANE_H + 40; }
+
+  function reset() {
+    workers = []; effects = []; passTimes = [];
+    timers = Array.from({length: lanes}, (_, i) => i * 0.37);
+    queues = Array.from({length: lanes}, () => []);
+    diverters = Array.from({length: lanes}, () => ({a: Math.PI, t: Math.PI}));
+    gateOpen = Array.from({length: lanes}, () => 0);
+    signals = Array.from({length: lanes}, () => null);
+    spawned = 0; through = 0; guarded = 0; simT = 0; finished = false;
+    H = TOP + lanes * LANE_H + 6;
+    resize();
+    updateSummary();
+    $('lanesVal').textContent = lanes;
+  }
+
+  function resize() {
+    const dpr = window.devicePixelRatio || 1;
+    const w = canvas.clientWidth || canvas.parentElement.clientWidth;
+    const h = w * H / W;
+    canvas.width = Math.round(w * dpr);
+    canvas.height = Math.round(h * dpr);
+    canvas.style.height = h + 'px';
+    ctx.setTransform(canvas.width / W, 0, 0, canvas.height / H, 0, 0);
+  }
+
+  const CHECK_ANGLE = Math.atan2(-50, -30);
+
+  function update(d) {
+    simT += d;
+    for (let l = 0; l < lanes; l++) {
+      timers[l] -= d;
+      if (timers[l] <= 0 && spawned < TOTAL) {
+        const cy = laneY(l);
+        workers.push({lane: l, x: -12, y: cy, match: Math.random() >= mis, phase: 'walk', scanned: false, decided: false, counted: false, service: 0, seed: Math.random() * 6});
+        spawned++;
+        timers[l] += HEADWAY * (0.88 + Math.random() * 0.24);
+      }
+      signals[l] = null;
+      gateOpen[l] = Math.max(0, gateOpen[l] - d * 4);
+    }
+
+    for (const w of workers) {
+      const cy = laneY(w.lane), py = cy + 52;
+      if (w.phase === 'walk') {
+        w.x += SPEED * d;
+        if (!w.scanned && w.x >= G1) { w.scanned = true; effects.push({x: G1, y: cy, born: performance.now()}); }
+        if (!w.decided && w.x >= G1 + 130) w.decided = true;
+        if (w.x >= G2 - 70 && w.x <= FORK + 30) {
+          signals[w.lane] = w.match ? 'go' : 'check';
+          diverters[w.lane].t = w.match ? Math.PI : CHECK_ANGLE;
+        }
+        if (Math.abs(w.x - G2) < 34) gateOpen[w.lane] = 1;
+        if (!w.counted && w.x >= G2) { w.counted = true; through++; passTimes.push(simT); }
+        if (!w.match && w.x >= FORK - 26) { w.phase = 'toPocket'; queues[w.lane].push(w); guarded++; }
+        if (w.x > W + 14) w.done = true;
+      } else if (w.phase === 'toPocket' || w.phase === 'queue') {
+        const idx = queues[w.lane].indexOf(w);
+        const tx = GUARD - 22 - idx * 22;
+        if (w.phase === 'toPocket') {
+          const dx = (FORK + 14) - w.x, dy = py - w.y, dist = Math.hypot(dx, dy);
+          if (dist < 2) { w.phase = 'queue'; }
+          else { const s = Math.min(dist, SPEED * d); w.x += dx / dist * s; w.y += dy / dist * s; }
+        } else {
+          const dx = tx - w.x;
+          if (Math.abs(dx) > 0.5) w.x += Math.sign(dx) * Math.min(Math.abs(dx), SPEED * d);
+          else if (idx === 0) {
+            w.service += d;
+            if (w.service >= GUARD_TIME) { queues[w.lane].shift(); w.phase = 'leave'; }
+          }
+        }
+      } else if (w.phase === 'leave') {
+        w.x += SPEED * d;
+        if (w.x > W + 14) w.done = true;
+      }
+    }
+    workers = workers.filter(w => !w.done);
+
+    for (const dv of diverters) {
+      const diff = dv.t - dv.a;
+      const step = 7 * d;
+      dv.a += Math.abs(diff) < step ? diff : Math.sign(diff) * step;
+    }
+
+    while (passTimes.length && passTimes[0] < simT - 60) passTimes.shift();
+
+    if (spawned >= TOTAL && workers.length === 0 && !finished) {
+      finished = true; running = false;
+      $('play').textContent = 'Play again';
+    }
+  }
+
+  function roundRect(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+  }
+
+  function draw(now) {
+    const c = colors;
+    ctx.clearRect(0, 0, W, H);
+    ctx.font = '600 13px Barlow, "Segoe UI", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = c.muted;
+    ctx.fillText('Gate 1: RFID + face camera', G1, 20);
+    ctx.fillText('Gate 2: diverter', G2 + 10, 20);
+    ctx.fillText('Straight in', (FORK + 30 + W) / 2, 20);
+
+    for (let l = 0; l < lanes; l++) {
+      const cy = laneY(l), py = cy + 52;
+      // floor
+      ctx.fillStyle = c.floor;
+      ctx.fillRect(0, cy - 25, W, 50);
+      ctx.fillRect(FORK - 30, cy + 25, W - FORK + 30, py + 14 - cy - 25);
+      // go strip tint
+      ctx.globalAlpha = 0.16; ctx.fillStyle = c.go; ctx.fillRect(FORK + 30, cy - 25, W - FORK - 30, 50);
+      ctx.fillStyle = c.check; ctx.fillRect(FORK - 30, py - 14, W - FORK + 30, 28); ctx.globalAlpha = 1;
+      // yellow edge markings
+      ctx.strokeStyle = c.yellow; ctx.lineWidth = 2; ctx.setLineDash([10, 8]);
+      ctx.beginPath(); ctx.moveTo(0, cy - 19); ctx.lineTo(G2 - 10, cy - 19); ctx.moveTo(0, cy + 19); ctx.lineTo(G2 - 10, cy + 19); ctx.stroke();
+      ctx.setLineDash([]);
+      // walls
+      ctx.strokeStyle = c.wall; ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(0, cy - 25); ctx.lineTo(W, cy - 25);
+      ctx.moveTo(0, cy + 25); ctx.lineTo(FORK - 30, cy + 25); ctx.lineTo(FORK - 30, py + 14); ctx.lineTo(W, py + 14);
+      ctx.moveTo(FORK + 30, cy + 25); ctx.lineTo(W, cy + 25);
+      ctx.stroke();
+      // lane number
+      ctx.fillStyle = c.muted; ctx.font = '600 12px Barlow, sans-serif'; ctx.textAlign = 'left';
+      ctx.fillText('Lane ' + (l + 1), 8, cy - 31);
+      // gate 1 posts and camera
+      ctx.fillStyle = c.wall;
+      ctx.fillRect(G1 - 5, cy - 31, 10, 10); ctx.fillRect(G1 - 5, cy + 21, 10, 10);
+      ctx.fillStyle = c.rfid;
+      ctx.beginPath(); ctx.moveTo(G1 - 4, cy - 26); ctx.lineTo(G1 - 14, cy - 31); ctx.lineTo(G1 - 14, cy - 21); ctx.closePath(); ctx.fill();
+      // gate 2 posts, flaps, signal
+      ctx.fillStyle = c.wall;
+      ctx.fillRect(G2 - 5, cy - 31, 10, 10); ctx.fillRect(G2 - 5, cy + 21, 10, 10);
+      const open = gateOpen[l], fa = open * 1.2;
+      ctx.strokeStyle = c.wall; ctx.lineWidth = 3; ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(G2, cy - 22); ctx.lineTo(G2 + Math.sin(fa) * 18, cy - 22 + Math.cos(fa) * 18);
+      ctx.moveTo(G2, cy + 22); ctx.lineTo(G2 + Math.sin(fa) * 18, cy + 22 - Math.cos(fa) * 18);
+      ctx.stroke();
+      const sig = signals[l];
+      ctx.beginPath(); ctx.arc(G2 + 18, cy - 34, 5, 0, Math.PI * 2);
+      ctx.fillStyle = sig === 'go' ? c.go : sig === 'check' ? c.check : c.line; ctx.fill();
+      // floor arrow
+      if (sig) {
+        ctx.fillStyle = sig === 'go' ? c.go : c.check;
+        ctx.save(); ctx.translate(FORK - 4, cy); ctx.rotate(sig === 'go' ? 0 : 0.95);
+        ctx.beginPath(); ctx.moveTo(-8, -6); ctx.lineTo(4, 0); ctx.lineTo(-8, 6); ctx.closePath(); ctx.fill();
+        ctx.restore();
+      }
+      // diverter
+      const dv = diverters[l];
+      ctx.strokeStyle = c.yellow; ctx.lineWidth = 5;
+      ctx.beginPath(); ctx.moveTo(FORK + 30, cy + 25);
+      ctx.lineTo(FORK + 30 + Math.cos(dv.a) * 58, cy + 25 + Math.sin(dv.a) * 58); ctx.stroke();
+      ctx.fillStyle = c.wall; ctx.beginPath(); ctx.arc(FORK + 30, cy + 25, 4, 0, Math.PI * 2); ctx.fill();
+      // guard booth
+      ctx.fillStyle = c.panel; ctx.strokeStyle = c.check; ctx.lineWidth = 2;
+      roundRect(GUARD + 4, py - 12, 50, 24, 5); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = c.ink; ctx.font = '600 12px Barlow, sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('Guard', GUARD + 29, py + 4);
+    }
+
+    // scan effects
+    effects = effects.filter(e => now - e.born < 650);
+    for (const e of effects) {
+      const t = (now - e.born) / 650;
+      ctx.strokeStyle = c.rfid; ctx.globalAlpha = 1 - t; ctx.lineWidth = 2;
+      for (let k = 0; k < 2; k++) {
+        ctx.beginPath(); ctx.arc(e.x, e.y - 25, 8 + (t + k * 0.3) * 22, 0.2 * Math.PI, 0.8 * Math.PI); ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    // workers
+    for (const w of workers) {
+      let fill = c.worker;
+      if (w.decided) fill = w.match ? c.go : c.check;
+      ctx.beginPath(); ctx.arc(w.x, w.y, 8.5, 0, Math.PI * 2);
+      ctx.fillStyle = fill; ctx.fill();
+      ctx.lineWidth = 1.5; ctx.strokeStyle = c.panel; ctx.stroke();
+      ctx.beginPath(); ctx.arc(w.x, w.y, 3, 0, Math.PI * 2); ctx.fillStyle = c.panel; ctx.globalAlpha = 0.55; ctx.fill(); ctx.globalAlpha = 1;
+      if (w.scanned && !w.decided) {
+        ctx.save(); ctx.translate(w.x, w.y); ctx.rotate(now / 260 + w.seed);
+        ctx.strokeStyle = c.rfid; ctx.lineWidth = 2; ctx.setLineDash([4, 4]);
+        ctx.beginPath(); ctx.arc(0, 0, 13, 0, Math.PI * 2); ctx.stroke(); ctx.restore(); ctx.setLineDash([]);
+      }
+      if (w.phase === 'queue' && w.service > 0) {
+        ctx.strokeStyle = c.check; ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.arc(w.x, w.y, 13, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (w.service / GUARD_TIME)); ctx.stroke();
+      }
+    }
+  }
+
+  function fmt(s) {
+    s = Math.floor(s);
+    const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+    return h ? `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}` : `${m}:${String(sec).padStart(2, '0')}`;
+  }
+
+  function updateStats() {
+    $('sThrough').textContent = through.toLocaleString('en-US');
+    $('sGuard').textContent = guarded.toLocaleString('en-US');
+    $('sTime').textContent = fmt(simT);
+    const span = Math.min(60, simT);
+    $('sRate').textContent = span > 5 ? Math.round(passTimes.length * 60 / span) : 0;
+    if (finished) {
+      $('summary').innerHTML = `<strong>All 3,000 workers were through Gate 2 in ${fmt(simT)}</strong> with ${lanes} lane${lanes > 1 ? 's' : ''}. ${guarded} of them were checked by a guard without slowing anyone else down.`;
+    }
+  }
+
+  function updateSummary() {
+    const perMin = Math.round(lanes * 60 / HEADWAY);
+    const mins = Math.round(TOTAL / perMin);
+    $('summary').innerHTML = `With ${lanes} lane${lanes > 1 ? 's' : ''}, the entrance handles about <strong>${perMin} workers a minute</strong>, so all 3,000 are through in roughly <strong>${mins} minutes</strong>. One face-scan lane at 3 seconds per person would take about 2.5 hours.`;
+  }
+
+  let last = performance.now(), lastStats = 0;
+  function frame(now) {
+    const realDt = Math.min(0.1, (now - last) / 1000); last = now;
+    if (running) {
+      let simDt = realDt * speed;
+      while (simDt > 0) { const d = Math.min(1 / 30, simDt); update(d); simDt -= d; }
+    }
+    draw(now);
+    if (now - lastStats > 150) { updateStats(); lastStats = now; }
+    requestAnimationFrame(frame);
+  }
+
+  $('play').addEventListener('click', () => {
+    if (finished) { reset(); running = true; }
+    else running = !running;
+    $('play').textContent = running ? 'Pause' : 'Play';
+  });
+  $('restart').addEventListener('click', () => { reset(); running = true; $('play').textContent = 'Pause'; });
+  $('speed').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    speed = Number(b.dataset.v);
+    $('speed').querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b ? 'true' : 'false'));
+  });
+  $('lanesDown').addEventListener('click', () => { if (lanes > 1) { lanes--; reset(); running = true; $('play').textContent = 'Pause'; } });
+  $('lanesUp').addEventListener('click', () => { if (lanes < 6) { lanes++; reset(); running = true; $('play').textContent = 'Pause'; } });
+  $('mis').addEventListener('input', e => { mis = Number(e.target.value) / 100; $('misVal').textContent = e.target.value + '%'; });
+
+  window.addEventListener('resize', resize);
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', readColors);
+  new MutationObserver(readColors).observe(document.documentElement, {attributes: true, attributeFilter: ['data-theme']});
+
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { running = false; }
+  readColors();
+  reset();
+  $('play').textContent = running ? 'Pause' : 'Play';
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => draw(performance.now()));
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
