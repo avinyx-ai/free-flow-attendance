@@ -106,10 +106,10 @@ input[type=range] { accent-color: var(--check); width: 120px; }
 <body>
 <main>
   <h1>Shift change at the two-gate entrance</h1>
-  <p class="lead">Each dot is a worker. Gate 1 reads their card and face while they keep walking. By the time they reach Gate 2, the system knows whether the face matches the card, and the diverter sends them straight in or to the guard.</p>
+  <p class="lead">Each dot is a worker. Gate 1 reads their card and face while they keep walking. By the time they reach Gate 2, the system knows whether the face matches the card, and the diverter sends them straight in or to a tripod turnstile with face recognition (Tripod FRS) for a second check.</p>
 
   <div class="stage">
-    <canvas id="sim" role="img" aria-label="Animated top-down view of workers walking through two gates and being sorted into a go lane or a guard check lane"></canvas>
+    <canvas id="sim" role="img" aria-label="Animated top-down view of workers walking through two gates and being sorted into a go lane or a Tripod FRS check lane"></canvas>
     <div class="controls">
       <button class="primary" id="play">Pause</button>
       <button id="restart">Restart</button>
@@ -133,7 +133,7 @@ input[type=range] { accent-color: var(--check); width: 120px; }
     </div>
     <div class="stats">
       <div class="stat"><b id="sThrough">0</b><span>of 3,000 through Gate 2</span></div>
-      <div class="stat"><b id="sGuard">0</b><span>sent to the guard</span></div>
+      <div class="stat"><b id="sGuard">0</b><span>sent to Tripod FRS</span></div>
       <div class="stat"><b id="sTime">0:00</b><span>since the shift change began</span></div>
       <div class="stat"><b id="sRate">0</b><span>workers per minute right now</span></div>
     </div>
@@ -143,11 +143,11 @@ input[type=range] { accent-color: var(--check); width: 120px; }
     <li><i style="background:var(--worker)"></i>Walking up</li>
     <li><i style="border:2px dashed var(--rfid)"></i>Card and face being matched</li>
     <li><i style="background:var(--go)"></i>Matched, goes straight in</li>
-    <li><i style="background:var(--check)"></i>Mismatch, guard checks</li>
+    <li><i style="background:var(--check)"></i>Mismatch, checked at Tripod FRS</li>
   </ul>
 
   <p class="summary" id="summary"></p>
-  <p class="note">This is an illustration, not a measurement. It assumes one worker every 1.6 seconds per lane at normal walking pace (about 1.3 m/s), Gate 2 placed about 7.5 m after Gate 1, and a guard check of about 12 seconds. Real numbers depend on your hardware and site layout.</p>
+  <p class="note">This is an illustration, not a measurement. It assumes one worker every 1.6 seconds per lane at normal walking pace (about 1.3 m/s), Gate 2 placed about 7.5 m after Gate 1, and a Tripod FRS check of about 12 seconds. Real numbers depend on your hardware and site layout.</p>
 </main>
 
 <script>
@@ -333,9 +333,9 @@ input[type=range] { accent-color: var(--check); width: 120px; }
       ctx.fillStyle = c.wall; ctx.beginPath(); ctx.arc(FORK + 30, cy + 25, 4, 0, Math.PI * 2); ctx.fill();
       // guard booth
       ctx.fillStyle = c.panel; ctx.strokeStyle = c.check; ctx.lineWidth = 2;
-      roundRect(GUARD + 4, py - 12, 50, 24, 5); ctx.fill(); ctx.stroke();
+      roundRect(GUARD + 4, py - 12, 78, 24, 5); ctx.fill(); ctx.stroke();
       ctx.fillStyle = c.ink; ctx.font = '600 12px Barlow, sans-serif'; ctx.textAlign = 'center';
-      ctx.fillText('Guard', GUARD + 29, py + 4);
+      ctx.fillText('Tripod FRS', GUARD + 43, py + 4);
     }
 
     // scan effects
@@ -382,7 +382,7 @@ input[type=range] { accent-color: var(--check); width: 120px; }
     const span = Math.min(60, simT);
     $('sRate').textContent = span > 5 ? Math.round(passTimes.length * 60 / span) : 0;
     if (finished) {
-      $('summary').innerHTML = `<strong>All 3,000 workers were through Gate 2 in ${fmt(simT)}</strong> with ${lanes} lane${lanes > 1 ? 's' : ''}. ${guarded} of them were checked by a guard without slowing anyone else down.`;
+      $('summary').innerHTML = `<strong>All 3,000 workers were through Gate 2 in ${fmt(simT)}</strong> with ${lanes} lane${lanes > 1 ? 's' : ''}. ${guarded} of them were checked at Tripod FRS without slowing anyone else down.`;
     }
   }
 
@@ -416,7 +416,7 @@ input[type=range] { accent-color: var(--check); width: 120px; }
     $('speed').querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b ? 'true' : 'false'));
   });
   $('lanesDown').addEventListener('click', () => { if (lanes > 1) { lanes--; reset(); running = true; $('play').textContent = 'Pause'; } });
-  $('lanesUp').addEventListener('click', () => { if (lanes < 6) { lanes++; reset(); running = true; $('play').textContent = 'Pause'; } });
+  $('lanesUp').addEventListener('click', () => { if (lanes < 10) { lanes++; reset(); running = true; $('play').textContent = 'Pause'; } });
   $('mis').addEventListener('input', e => { mis = Number(e.target.value) / 100; $('misVal').textContent = e.target.value + '%'; });
 
   window.addEventListener('resize', resize);
