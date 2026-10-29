@@ -196,7 +196,7 @@ input[type=range] { accent-color: var(--check); width: 120px; }
     ctx.setTransform(canvas.width / W, 0, 0, canvas.height / H, 0, 0);
   }
 
-  const CHECK_ANGLE = Math.atan2(-50, -30);
+  const CHECK_ANGLE = Math.atan2(-50, -30) + Math.PI * 2;
 
   function update(d) {
     simT += d;
